@@ -288,3 +288,38 @@ public class MemberServiceTest {
 - 회원가입 테스트
 - 중복 회원 예외 처리 테스트
 
+### 테스트 케이스를 위한 설정
+테스트는 케이스 격리된 환경에서 실행하고, 끝나면 데이터를 초기화하는 것이 좋다. 그런 면에서 메모리 DB를 사용하는 것이 가장 이상적이다.  
+추가로 테스트 케이스를 위한 스프링 환경과, 일반적으로 애플리케이션을 실행하는 환경은 보통 다르므로 설정 파일을 다르게 사용하자.  
+다음과 같이 간단하게 테스트용 설정 파일을 추가하면 된다.  
+
+- `test/resources/application.yml`
+```yaml
+spring:
+#   datasource:
+#   url: jdbc:h2:mem:testdb
+#   username: sa
+#   password:
+#   driver-class-name: org.h2.Driver
+
+#   jpa:
+#       hibernate:
+#           ddl-auto: create
+#       properties:
+#           hibernate:
+#               show_sql: true
+#           format_sql: true
+#       open-in-view: false
+
+logging.level:
+  org.hibernate.SQL: debug
+#   org.hibernate.type: trace
+```
+
+이제 테스트에서 스프링을 실행하면 이 위치에 있는 설정 파일을 읽는다.  
+(만약 이 위치에 없으면 src/resources/application.yml 을 읽는다.)  
+
+스프링 부트는 datasource 설정이 없으면, 기본적을 메모리 DB를 사용하고, driver-class도 현재 등록된 라이브러리를 보고 찾아준다.  
+추가로 ddl-auto 도 create-drop 모드로 동작한다.  
+따라서 데이터소스나, JPA 관련된 별도의 추가 설정을 하지 않아도 된다.  
+
