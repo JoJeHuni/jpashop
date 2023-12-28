@@ -197,3 +197,94 @@ public class MemberRepository {
     ...
 }
 ```
+
+`MemberService` 최종 코드
+```java
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+public class MemberService {
+
+    private final MemberRepository memberRepository;
+
+    //회원 가입
+    public Long join(Member member) {
+
+        validateDuplicateMember(member); // 중복 이름인 사람은 가입 못 하게 하는 검증을 넣어봤다.
+        memberRepository.save(member); // id 값이 key 값이 된다.
+        return member.getId();
+    }
+
+    private void validateDuplicateMember(Member member) {
+        // 이름이 같을 경우의 Exception
+        List<Member> findMembers = memberRepository.findByName(member.getName());
+        if (!findMembers.isEmpty()) throw new IllegalStateException("이미 존재하는 회원입니다.");
+    }
+
+    //회원 전체 조회
+    public List<Member> findMembers() {
+        return memberRepository.findAll();
+    }
+
+    public Member findOne(Long memberId) {
+        return memberRepository.findOne(memberId);
+    }
+}
+
+```
+---
+### 회원 기능 테스트
+
+**테스트 요구 사항**
+- 회원가입을 성공해야 한다.
+- 회원가입을 할 때 같은 이름이 있으면 예외가 발생해야 한다.
+
+**회원가입 테스트 코드**
+```java
+@RunWith(SpringRunner.class)
+@SpringBootTest
+@Transactional
+public class MemberServiceTest {
+
+    @Autowired MemberService memberService;
+    @Autowired
+    MemberRepository memberRepository;
+
+    @Test
+    @Rollback(false)
+    public void 회원가입() throws Exception {
+        //Given
+        Member member = new Member();
+        member.setName("kim");
+
+        //when
+        Long saveId = memberService.join(member);
+
+        //Then
+        assertEquals(member, memberRepository.findOne(saveId));
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void 중복_회원_예외() throws Exception {
+        //given
+        Member member1 = new Member();
+        member1.setName("kim");
+
+        Member member2 = new Member();
+        member2.setName("kim");
+
+        //when
+        memberService.join(member1);
+        memberService.join(member2); // 예외가 발생해야 한다.
+        //then
+        fail("예외가 발생해야 한다.");
+    }
+}
+```
+
+- `@Transactional` : 반복 가능한 테스트 지원, 각각의 테스트를 실행할 때마다 트랜잭션을 시작하고 **테스트가 끝나면 트랜잭션을 강제로 롤백** (이 어노테이션이 테스트 케이스에서 사용될 때만 롤백)
+
+**기능 설명**
+- 회원가입 테스트
+- 중복 회원 예외 처리 테스트
+
