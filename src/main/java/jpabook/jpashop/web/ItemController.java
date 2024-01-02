@@ -16,6 +16,7 @@ public class ItemController {
 
     private final ItemService itemService;
 
+    // 상품 등록 createForm, create
     @GetMapping(value = "/items/new")
     public String createForm(Model model) {
 
@@ -35,5 +36,15 @@ public class ItemController {
         itemService.saveItem(book);
 
         return "redirect:/items";
+    }
+
+    // 상품 목록 list -> 모델에 담아둔 상품 목록인 items를 꺼내서 상품 정보 출력
+    @GetMapping(value = "/items")
+    public String list(Model model) {
+
+        List<Item> items = itemService.findItems();
+        model.addAttribute("items", items);
+
+        return "items/itemList";
     }
 }
