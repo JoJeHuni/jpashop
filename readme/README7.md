@@ -108,7 +108,7 @@ spring:
 </div>
 ```
 
-![img.png](img.png)  
+![img.png](image/section7/img.png)  
 H2를 키고, JpashopApplication 실행 후 localhost:8080 에 들어가면 이제 이런 화면이 나온다.
 순수한 html만 적용돼 있다.
 
@@ -199,7 +199,7 @@ body {
 ```
 
 bootstrap 버전이 달라서 강의와는 다르지만 변하긴 변했다.  
-![img_1.png](img_1.png)
+![img_1.png](image/section7/img_1.png)
 
 이제 기능을 추가해보자.  
 
@@ -749,7 +749,7 @@ void update(Item itemParam) { //itemParam: 파리미터로 넘어온 준영속 �
 ```
 
 **병합: 기존에 있는 엔티티**  
-![img_2.png](img_2.png)  
+![img_2.png](image/section7/img_2.png)  
 
 **병합 동작 방식**
 1. `merge()` 를 실행한다.
@@ -956,3 +956,8 @@ public class OrderController {
 ```
 
 ---
+## 주문 목록 검색, 취소
+**주문 목록 검색 컨트롤러**
+```java
+
+```
