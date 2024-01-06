@@ -51,6 +51,9 @@ public class MemberApiController {
 ```
 
 #### V1 : 엔티티를 Request Body에 직접 매핑
+![img.png](image/section1/img.png)
+postman 으로 해봤다. name='hello'로 보이는 것을 확인할 수 있었다.
+
 **문제점**
 - 엔티티에 프레젠테이션 계층을 위한 로직이 추가된다.
 - 엔티티에 API 검증을 위한 로직이 들어간다. (@NotEmpty 등등)
@@ -74,6 +77,8 @@ public class MemberApiController {
         return new CreateMemberResponse(id);
     }
 ```
+
+![img_1.png](image/section1/img_1.png)
 
 - `CreateMemberRequest` 를 `Member` 엔티티 대신에 RequestBody와 매핑한다.
 - 엔티티와 프레젠테이션 계층을 위한 로직을 분리할 수 있다.
