@@ -89,11 +89,17 @@ public class MemberApiController {
                 .map(m -> new MemberDto(m.getName()))
                 .collect(Collectors.toList());
         return new Result(collect);
+        // return new Result(collect.size(), collect);
+        // Result에서 개수를 알기 위해 private int count를 주석을 해제하고 돌려보면 회원 수를 알 수 있다.
     }
 
     @Data
     @AllArgsConstructor
     static class Result<T> {
+        /** 개수를 알고 싶다면?
+         * private int count;
+          */
+
         private T data;
     }
     @Data
