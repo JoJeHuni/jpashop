@@ -133,6 +133,7 @@ public class OrderSimpleApiController {
     @GetMapping("/api/v2/simple-orders")
     public List<SimpleOrderDto> ordersV2() {
         List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+        
         List<SimpleOrderDto> result = orders.stream()
                 .map(o -> new SimpleOrderDto(o))
                 .collect(toList());
@@ -159,10 +160,14 @@ public class OrderSimpleApiController {
 V1에서는 orderId가 아닌, Id로 엔티티 정보 자체가 나왔었는데 이제는 아니다.  
 
 - 엔티티를 DTO로 변환하는 일반적인 방법이다.
+- 하지만 이 방법도 너무 쿼리가 많이 출력돼 아쉽다.
+- orderV2는 order 조회 1번, member 조회 1번, delivery 조회 1번으로 끝난다고 생각하지만?
+  - 1번째 주문서는 order 1개, member_id 1개, delivery_id 1개만 넘기면서 쿼리 3개로 완성이 된다. 근데 order는 2개 이므로 또 한 번 더 loop를 돌게 된다.
+  - 2번째 주문서 (2번째 loop) 는 또 member, delivery를 가져온다. (즉, member와 delivery는 n개의 주문서만큼 n번 가져온다.)
 - 쿼리가 총 1 + N + N번 실행된다. (v1과 쿼리수 결과는 같다.)
   - `order` 조회 1번(order 조회 결과 수가 N이 된다.)
   - `order -> member` 지연 로딩 조회 N 번
   - `order -> delivery` 지연 로딩 조회 N 번
   - 예) order의 결과가 4개면 최악의 경우 1 + 4 + 4번 실행된다.(최악의 경우)
-    - 지연로딩은 영속성 컨텍스트에서 조회하므로, 이미 조회된 경우 쿼리를 생략한다.
+    - **지연로딩은 영속성 컨텍스트에서 조회하므로, 이미 조회된 경우 쿼리를 생략한다.**
 ---
