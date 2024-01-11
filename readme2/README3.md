@@ -101,6 +101,17 @@ public class OrderSimpleApiController {
 ```
 - 기본적으로 초기화 된 프록시 객체만 노출, 초기화 되지 않은 프록시 객체는 노출 안함
 
+강제로 지연 로딩을 하는 방법은 이렇게 수정하면 된다.
+```java
+    @Bean
+    Hibernate5JakartaModule hibernate5Module() {
+        Hibernate5JakartaModule hibernate5JakartaModule = new Hibernate5JakartaModule();
+        // 강제 지연 로딩 설정
+        hibernate5JakartaModule.configure(Hibernate5JakartaModule.Feature.FORCE_LAZY_LOADING, true);
+        return new Hibernate5JakartaModule();
+    }
+```
+
 > V1 엔티티 직접 노출하는 것에 대한 이야기이기 때문에 열심히 볼 필요는 없다.
 
 > 참고: 앞에서 계속 강조했듯이 정말 간단한 애플리케이션이 아니면 엔티티를 API 응답으로 외부로 노출하는 것은 좋지 않다.  
