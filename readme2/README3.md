@@ -154,6 +154,9 @@ public class OrderSimpleApiController {
         }
     }
 ```
+![img.png](image/section3/img.png)  
+이런 형태로 나온다.  
+V1에서는 orderId가 아닌, Id로 엔티티 정보 자체가 나왔었는데 이제는 아니다.  
 
 - 엔티티를 DTO로 변환하는 일반적인 방법이다.
 - 쿼리가 총 1 + N + N번 실행된다. (v1과 쿼리수 결과는 같다.)
