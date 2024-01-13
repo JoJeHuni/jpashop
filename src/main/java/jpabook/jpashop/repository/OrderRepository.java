@@ -89,4 +89,16 @@ public class OrderRepository {
 
         return query.getResultList();
     }
+
+    /**
+     * 한방 쿼리
+     * Order 조회를 하면 member, delivery를 같이 조회해온다.
+     */
+    public List<Order> findAllWithMemberDelivery() {
+        return em.createQuery(
+                "select o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d", Order.class
+        ).getResultList();
+    }
 }
