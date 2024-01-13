@@ -171,3 +171,44 @@ V1에서는 orderId가 아닌, Id로 엔티티 정보 자체가 나왔었는데 
   - 예) order의 결과가 4개면 최악의 경우 1 + 4 + 4번 실행된다.(최악의 경우)
     - **지연로딩은 영속성 컨텍스트에서 조회하므로, 이미 조회된 경우 쿼리를 생략한다.**
 ---
+## 간단한 주문 조회 V3: 엔티티를 DTO로 변환 - Fetch join 최적화
+**OrderSimpleApiController - 추가**
+```java
+    /**
+     * V3. 엔티티를 조회해서 DTO로 변환(fetch join 사용O)
+     * - fetch join으로 쿼리 1번 호출
+     * 참고: fetch join에 대한 자세한 내용은 JPA 기본편 참고(정말 중요함)
+     */
+    @GetMapping("/api/v3/simple-orders")
+    public List<SimpleOrderDto> ordersV3() {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery();
+        List<SimpleOrderDto> result = orders.stream()
+                .map(o -> new SimpleOrderDto(o))
+                .collect(toList());
+        return result;
+    }
+```
+
+**OrderRepository - 추가 **
+```java
+    /**
+     * 한방 쿼리
+     * Order 조회를 하면 member, delivery를 같이 조회해온다.
+     */
+    public List<Order> findAllWithMemberDelivery() {
+        return em.createQuery(
+                "select o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d", Order.class
+        ).getResultList();
+    }
+```
+
+엔티티를 페치 조인(fetch join)을 사용해서 쿼리 1번에 조회  
+V2에서는 n + n 조회로 문제가 있었지만 패치 조인을 하면?  
+페치 조인으로 `order -> member` , `order -> delivery` 는 **이미 조회된 상태 이므로 지연로딩 X**  
+
+![img.png](image/section3/img_1.png)  
+![img_1.png](image/section3/img_2.png)  
+from절에는 order를 조회하지만? `order - member`, `order - delivery `조인으로 인해 성능이 빨라졌음을 알 수 있다.
+---
