@@ -305,3 +305,54 @@ static class OrderItemDto {
 > 따라서 같은 영속성 컨텍스트에서 이미 로딩한 회원 엔티티를 추가로 조회하면 SQL을 실행하지 않는다.
 
 ---
+## 주문 조회 V3.1: 엔티티를 DTO로 변환 - 페치 조인 최적화
+**OrderApiController 에 추가**
+```java
+    @GetMapping("/api/v3/orders")
+    public List<OrderDto> ordersV3() {
+        List<Order> orders = orderRepository.findAllWithItem();
+        List<OrderDto> result = orders.stream()
+                .map(o -> new OrderDto(o))
+                .collect(toList());
+        
+        return result;
+    }
+```
+
+**OrderRepository에 추가**
+```java
+    public List<Order> findAllWithItem() {
+        return em.createQuery(
+                "select distinct o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d" +
+                        // 이 아래 orderItems 부분부터는 예제에서의 데이터 양이 order가 2개일 때, orderItem이 4개이다.
+                        // order 와 orderItems를 조인하면서 2개였던 order가 4개로 데이터 양이 늘어난다.
+                        " join fetch o.orderItems oi" +
+                        " join fetch oi.item i", Order.class).getResultList();
+    }
+```
+
+`distinct` **사용 이전**의 결과 사진  
+![img.png](image/section4/img_1.png)  
+![img_1.png](image/section4/img_2.png)  
+
+order 와 orderItems를 조인하면서 2개였던 order가 4개로 데이터 양이 늘어난다. (심지어 중복이다.)   
+DB 입장에서는 데이터가 늘어났지만, Hibernate 입장에서는 모른다.  
+이걸 해결하기 위해서는 `distinct` 을 사용하자.  
+
+- 페치 조인으로 SQL이 1번만 실행됨 
+- `distinct` 를 사용한 이유는 1대다 조인이 있으므로 데이터베이스 row가 증가한다. 그 결과 같은 order 엔티티의 조회 수도 증가하게 된다.  
+JPA의 distinct는 SQL에 distinct를 추가하고, 더해서 같은 엔티티가 조회되면, 애플리케이션에서 중복을 걸러준다.  
+이 예에서 order가 컬렉션 페치 조인 때문에 중복 조회 되는 것을 막아준다.
+- 단점 
+  - 페이징 불가능
+
+> 참고: **컬렉션 페치 조인을 사용하면 페이징이 불가능**하다.  
+> 하이버네이트는 경고 로그를 남기면서 모든 데이터를 DB에서 읽어오고, 메모리에서 페이징 해버린다(매우 위험하다).  
+> 자세한 내용은 자바 ORM 표준 JPA 프로그래밍의 페치 조인 부분을 참고하자.
+
+> 참고: **컬렉션 페치 조인은 1개만 사용할 수 있다.** 컬렉션 둘 이상에 페치 조인을 사용하면 안된다.  
+> 데이터가 부정합하게 조회될 수 있다. 자세한 내용은 자바 ORM 표준 JPA 프로그래밍을 참고하자.  
+
+---
