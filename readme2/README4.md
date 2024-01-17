@@ -493,3 +493,143 @@ select ... item.item_id where in(1,2,3)
 참고로 `array_contains` 에서 `default_batch_fetch_size` 에 맞추어 **배열에 null 값을 추가**하는데, 이 부분은 아마도 특정 데이터베이스에 따라서 **배열의 데이터 숫자가 같아야 최적화가 되기 때문에 그런 것으로 추정된다.**
 
 ---
+## 주문 조회 V4: JPA에서 DTO 직접 조회
+**OrderApiController 에 추가**
+```java
+    private final OrderQueryRepository orderQueryRepository;    
+
+    @GetMapping("/api/v4/orders")
+    public List<OrderQueryDto> ordersV4() {
+        return orderQueryRepository.findOrderQueryDtos();
+    }
+```
+
+repository.order.query 패키지에 OrderQueryRepository 생성
+```java
+package jpabook.jpashop.repository.order.query;
+
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+@RequiredArgsConstructor
+public class OrderQueryRepository {
+
+    private EntityManager em;
+
+    /**
+     * 컬렉션은 별도로 조회
+     * Query: 루트 1번, 컬렉션 N 번
+     * 단건 조회에서 많이 사용하는 방식
+     */
+    public List<OrderQueryDto> findOrderQueryDtos() {
+        List<OrderQueryDto> result = findOrders();
+
+        result.forEach(o -> {
+            List<OrderItemQueryDto> orderItems = findOrderItems(o.getOrderId());
+            o.setOrderItems(orderItems);
+        });
+
+        return result;
+    }
+
+    /**
+     * 1:N 관계인 orderItems 조회
+     */
+    private List<OrderItemQueryDto> findOrderItems(Long orderId) {
+        return em.createQuery(
+                "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id, i.name, oi.orderPrice, oi.count)" +
+                        " from OrderItem oi" +
+                        " join oi.item i" +
+                        " where oi.order.id = :orderId", OrderItemQueryDto.class)
+                .setParameter("orderId", orderId)
+                .getResultList();
+    }
+
+    /**
+     * 1:N 관계(컬렉션)를 제외한 나머지를 한번에 조회
+     */
+    private List<OrderQueryDto> findOrders() {
+        return em.createQuery(
+                        "select new jpabook.jpashop.repository.order.query.OrderQueryDto(o.id, m.name, o.orderDate, o.status, d.address)" +
+                                " from Order o" +
+                                " join o.member m" +
+                                " join o.delivery d", OrderQueryDto.class)
+                .getResultList();
+    }
+}
+```
+
+**OrderQueryDto**
+```java
+package jpabook.jpashop.repository.order.query;
+
+import jpabook.jpashop.domain.Address;
+import jpabook.jpashop.domain.OrderStatus;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@EqualsAndHashCode(of = "orderId")
+public class OrderQueryDto {
+
+    private Long orderId;
+    private String name;
+    private LocalDateTime orderDate; //주문시간
+    private OrderStatus orderStatus;
+    private Address address;
+    private List<OrderItemQueryDto> orderItems;
+
+    public OrderQueryDto(Long orderId, String name, LocalDateTime orderDate, OrderStatus orderStatus, Address address) {
+        this.orderId = orderId;
+        this.name = name;
+        this.orderDate = orderDate;
+        this.orderStatus = orderStatus;
+        this.address = address;
+    }
+}
+```
+
+**OrderItemQueryDto**
+```java
+package jpabook.jpashop.repository.order.query;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.Data;
+
+@Data
+public class OrderItemQueryDto {
+
+    @JsonIgnore
+    private Long orderId;
+    private String itemName;
+    private int orderPrice;
+    private int count;
+
+    public OrderItemQueryDto(Long orderId, String itemName, int orderPrice, int count) {
+        this.orderId = orderId;
+        this.itemName = itemName;
+        this.orderPrice = orderPrice;
+        this.count = count;
+    }
+}
+```
+
+- Query : 루트 1번, 컬렉션 N 번 실행 
+- (findOrders 로 order 1번, findOrderItems 에서 orderItem을 기준으로 orderItem 1번과 조인된 item을 1번 가져온다.)
+  - findORders 로 1번이지만 -> 예제는 2개이다. 즉, n개
+  - 컬렉션인 orderItem, item 때문에 n번
+    - n+n 문제가 터진다.
+- ToOne(N:1, 1:1) 관계들을 먼저 조회하고, ToMany(1:N) 관계는 각각 별도로 처리한다.
+  - 이런 방식을 선택한 이유는 다음과 같다.
+  - ToOne 관계는 조인해도 데이터 row 수가 증가하지 않는다.
+  - ToMany(1:N) 관계는 조인하면 row 수가 증가한다.
+- row 수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고, ToMany 관계는 최적화 하기 어려우므로 findOrderItems() 같은 별도의 메서드로 조회한다.
+
+---
