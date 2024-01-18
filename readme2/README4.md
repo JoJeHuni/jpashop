@@ -633,3 +633,114 @@ public class OrderItemQueryDto {
 - row 수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고, ToMany 관계는 최적화 하기 어려우므로 findOrderItems() 같은 별도의 메서드로 조회한다.
 
 ---
+## 주문 조회 V5: JPA에서 DTO 직접 조회 - 컬렉션 조회 최적화
+OrderApiController에 추가
+```java
+    @GetMapping("/api/v5/orders")
+    public List<OrderQueryDto> ordersV5() {
+        return orderQueryRepository.findAllByDto_optimization();
+    }
+```
+
+OrderQueryRepository에 추가
+```java
+/**
+ * 최적화
+ * Query: 루트 1번, 컬렉션 1번
+ * 데이터를 한꺼번에 처리할 때 많이 사용하는 방식
+ *
+ */
+    public List<OrderQueryDto> findAllByDto_optimization() {
+        // 루트 조회(toOne 코드를 모두 한번에 조회)
+        List<OrderQueryDto> result = findOrders();
+
+        // orderId로 바꾸면 orderId의 리스트가 된다.
+        List<Long> orderIds = result.stream()
+                .map(o -> o.getOrderId())
+                .collect(Collectors.toList());
+
+        // 쿼리 한 번으로 orderItems를 만든다.
+        List<OrderItemQueryDto> orderItems = em.createQuery(
+                "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id, i.name, oi.orderPrice, oi.count)" +
+                        " from OrderItem oi" +
+                        " join oi.item i" +
+                        " where oi.order.id in :orderIds", OrderItemQueryDto.class)
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+
+        // orderItems를 map으로 바꿔서 최적화해보자.
+        // orderItem 컬렉션을 MAP 한방에 조회
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = orderItems.stream()
+                .collect(Collectors.groupingBy(orderItemQueryDto -> orderItemQueryDto.getOrderId()));
+
+        // 메모리에 map으로 매칭해서 값을 세팅해준다.
+        // 루프를 돌면서 컬렉션 추가(추가 쿼리 실행X)
+        result.forEach(o -> o.setOrderItems(orderItemMap.get(o.getOrderId())));
+
+        return result;
+    }
+```
+
+실행 시 나오는 쿼리 (findOrders 부분)  
+![img.png](image/section4/img_4.png)  
+
+`orderIds` 부분은 Id를 추출한 것이기 때문에 쿼리가 나오지 않는다.  
+
+`orderItems` 부분의 쿼리를 보자.  
+![img_1.png](image/section4/img_5.png)  
+
+이후 `orderItems`를 Map으로 바꿔주고 Order에 대해 루프를 돌리면서 `Order.setOrderItems` 에 `orderItemMap.get(o.getOrderId())`  
+즉, 메모리에 맵을 올려뒀다.  
+이렇게 하면 쿼리 2번으로 최적화할 수 있다.  
+
+OrderQueryRepository 코드 수정
+```java
+    public List<OrderQueryDto> findAllByDto_optimization() {
+        // 루트 조회(toOne 코드를 모두 한번에 조회)
+        List<OrderQueryDto> result = findOrders();
+
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = findOrderItemMap(toOrderIds(result));
+
+        // 메모리에 map으로 매칭해서 값을 세팅해준다.
+        // 루프를 돌면서 컬렉션 추가(추가 쿼리 실행X)
+        result.forEach(o -> o.setOrderItems(orderItemMap.get(o.getOrderId())));
+
+        return result;
+    }
+
+    private Map<Long, List<OrderItemQueryDto>> findOrderItemMap(List<Long> orderIds) {
+        // 쿼리 한 번으로 orderItems를 만든다.
+        List<OrderItemQueryDto> orderItems = em.createQuery(
+                "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id, i.name, oi.orderPrice, oi.count)" +
+                        " from OrderItem oi" +
+                        " join oi.item i" +
+                        " where oi.order.id in :orderIds", OrderItemQueryDto.class)
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+
+        // orderItems를 map으로 바꿔서 최적화해보자.
+        // orderItem 컬렉션을 MAP 한방에 조회
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = orderItems.stream()
+                .collect(Collectors.groupingBy(orderItemQueryDto -> orderItemQueryDto.getOrderId()));
+        return orderItemMap;
+    }
+
+    private static List<Long> toOrderIds(List<OrderQueryDto> result) {
+        // orderId로 바꾸면 orderId의 리스트가 된다.
+        List<Long> orderIds = result.stream()
+                .map(o -> o.getOrderId())
+                .collect(Collectors.toList());
+        return orderIds;
+    }
+```
+외부 메서드로 이동시켜줬다.  
+
+- Query: 루트 1번, 컬렉션 1번
+- ToOne 관계들을 먼저 조회하고, 여기서 얻은 식별자 orderId로 ToMany 관계인 `OrderItem` 을 한꺼번에 조회
+- MAP을 사용해서 매칭 성능 향상(O(1))
+
+직접 JPA로 컬렉션 조회 최적화하는게 그렇게 편해보이지는 않는다.  
+대신 성능 향상으로 이전 페치 조인보다 쿼리의 양은 줄어든다.  
+V6에서는 쿼리 1번으로 해결해볼 것이다.  
+
+---
