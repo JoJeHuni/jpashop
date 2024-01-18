@@ -854,11 +854,11 @@ public class OrderFlatDto {
    1. 페치조인으로 쿼리 수를 최적화
    2. 컬렉션 최적화
       1. 페이징 필요 `hibernate.default_batch_fetch_size` , `@BatchSize` 로 최적화
-      2. 페이징 필요X 페치 조인 사용
+      2. 페이징 필요 X -> 페치 조인 사용
 2. 엔티티 조회 방식으로 해결이 안되면 DTO 조회 방식 사용
 3. DTO 조회 방식으로 해결이 안되면 NativeSQL or 스프링 JdbcTemplate
 
-> 참고: 엔티티 조회 방식은 페치 조인이나, hibernate.default_batch_fetch_size , @BatchSize 같이 코드를 거의 수정하지 않고, 옵션만 약간 변경해서, 다양한 성능 최적화를 시도할 수 있다.  
+> 참고: 엔티티 조회 방식은 페치 조인이나, `hibernate.default_batch_fetch_size` , `@BatchSize` 같이 코드를 거의 수정하지 않고, 옵션만 약간 변경해서, 다양한 성능 최적화를 시도할 수 있다.  
 > 반면에 DTO를 직접 조회하는 방식은 성능을 최적화 하거나 성능 최적화 방식을 변경할 때 많은 코드를 변경해야 한다.
 
 > 참고: 개발자는 성능 최적화와 코드 복잡도 사이에서 줄타기를 해야 한다. 항상 그런 것은 아니지만, 보통 성능 최적화는 단순한 코드를 복잡한 코드로 몰고간다.  
